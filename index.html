@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JSON Fixer - Repara y Formatea JSON</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>JSON Fixer</h1>
+            <p class="subtitle">Pega tu JSON (incluso si está mal formateado) y lo arreglaremos</p>
+        </header>
+
+        <!-- Vista de entrada -->
+        <div id="input-view" class="view active">
+            <div class="input-section">
+                <label for="json-input">Pega tu JSON aquí:</label>
+                <textarea 
+                    id="json-input" 
+                    placeholder='Ejemplo: {name: "Juan", age: 30, hobbies: ["leer", "programar"]}'
+                    spellcheck="false"
+                ></textarea>
+                <div class="error-message" id="error-message"></div>
+                <button id="fix-btn" class="btn-primary">
+                    Formatear JSON
+                </button>
+            </div>
+        </div>
+
+        <!-- Vista de resultado -->
+        <div id="result-view" class="view">
+            <div class="result-header">
+                <h2>JSON Formateado</h2>
+                <div class="result-actions">
+                    <button id="copy-btn" class="btn-secondary">
+                        Copiar
+                    </button>
+                    <button id="back-btn" class="btn-secondary">
+                        Volver
+                    </button>
+                </div>
+            </div>
+            <div class="result-section">
+                <pre id="json-output"><code></code></pre>
+            </div>
+            <div id="copy-toast" class="toast">Copiado al portapapeles</div>
+        </div>
+        <footer>
+            <p>Autor: Pedro GV <a href="https://github.com/furthurr" target="_blank">@furthurr</a></p>
+        </footer>
+    </div>
+
+    <script src="json-fixer.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
