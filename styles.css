@@ -239,6 +239,50 @@ header h1 {
     color: var(--json-bracket);
 }
 
+/* Collapsible elements */
+.collapsible {
+    cursor: pointer;
+    user-select: none;
+    position: relative;
+}
+
+.collapsible:hover {
+    background: var(--bg-tertiary);
+    border-radius: 3px;
+}
+
+.collapse-icon {
+    display: inline-block;
+    width: 1em;
+    text-align: center;
+    color: var(--text-muted);
+    font-weight: bold;
+    margin-right: 2px;
+}
+
+.collapsible:hover .collapse-icon {
+    color: var(--accent-primary);
+}
+
+.collapsible-content {
+    display: inline;
+}
+
+.collapsible-content.collapsed {
+    display: none;
+}
+
+.collapse-preview {
+    display: none;
+    color: var(--text-muted);
+    font-style: italic;
+    margin-left: 4px;
+}
+
+.collapse-preview.visible {
+    display: inline;
+}
+
 /* Toast Notification */
 .toast {
     position: fixed;

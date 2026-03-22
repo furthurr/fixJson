@@ -15,52 +15,77 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Estado
     let currentFormattedJSON = '';
+    let currentParsedJSON = null;
 
     /**
-     * Aplica syntax highlighting al JSON
+     * Genera HTML con syntax highlighting y elementos colapsables
      */
-    function highlightJSON(json) {
-        // Escapar HTML
-        let escaped = json
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;');
+    function renderJSON(data, indent = 0) {
+        const indentStr = '  '.repeat(indent);
+        const nextIndent = '  '.repeat(indent + 1);
 
-        // Aplicar colores
-        return escaped
-            // Strings (incluyendo las claves)
-            .replace(/"([^"\\]*(\\.[^"\\]*)*)"/g, (match, content) => {
-                return `<span class="json-string">"${content}"</span>`;
-            })
-            // Claves (strings seguidos de :)
-            .replace(/<span class="json-string">"([^"]+)"<\/span>(\s*):/g, (match, key, space) => {
-                return `<span class="json-key">"${key}"</span>${space}:`;
-            })
-            // Números
-            .replace(/:\s*(-?\d+\.?\d*)/g, (match, num) => {
-                return `: <span class="json-number">${num}</span>`;
-            })
-            // También números en arrays
-            .replace(/\[\s*(-?\d+\.?\d*)/g, (match, num) => {
-                return `[ <span class="json-number">${num}</span>`;
-            })
-            .replace(/,\s*(-?\d+\.?\d*)(\s*[,\]])/g, (match, num, end) => {
-                return `, <span class="json-number">${num}</span>${end}`;
-            })
-            // Booleanos
-            .replace(/:\s*(true|false)/g, (match, bool) => {
-                return `: <span class="json-boolean">${bool}</span>`;
-            })
-            .replace(/\[\s*(true|false)/g, (match, bool) => {
-                return `[ <span class="json-boolean">${bool}</span>`;
-            })
-            .replace(/,\s*(true|false)/g, (match, bool) => {
-                return `, <span class="json-boolean">${bool}</span>`;
-            })
-            // Null
-            .replace(/:\s*null/g, ': <span class="json-null">null</span>')
-            .replace(/\[\s*null/g, '[ <span class="json-null">null</span>')
-            .replace(/,\s*null/g, ', <span class="json-null">null</span>');
+        if (data === null) {
+            return '<span class="json-null">null</span>';
+        }
+
+        if (typeof data === 'boolean') {
+            return `<span class="json-boolean">${data}</span>`;
+        }
+
+        if (typeof data === 'number') {
+            return `<span class="json-number">${data}</span>`;
+        }
+
+        if (typeof data === 'string') {
+            const escaped = data
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;');
+            return `<span class="json-string">"${escaped}"</span>`;
+        }
+
+        if (Array.isArray(data)) {
+            if (data.length === 0) {
+                return '[]';
+            }
+
+            const items = data.map((item, index) => {
+                const comma = index < data.length - 1 ? ',' : '';
+                const rendered = renderJSON(item, indent + 1);
+                return `${nextIndent}${rendered}${comma}`;
+            });
+
+            const content = items.join('\n');
+            const preview = `Array(${data.length})`;
+
+            return `<span class="collapsible" onclick="toggleCollapse(this)"><span class="collapse-icon">-</span>[</span><span class="collapsible-content">\n${content}\n${indentStr}</span><span class="collapse-preview">${preview}</span>]`;
+        }
+
+        if (typeof data === 'object') {
+            const keys = Object.keys(data);
+            if (keys.length === 0) {
+                return '{}';
+            }
+
+            const items = keys.map((key, index) => {
+                const comma = index < keys.length - 1 ? ',' : '';
+                const escapedKey = key
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;');
+                const rendered = renderJSON(data[key], indent + 1);
+                return `${nextIndent}<span class="json-key">"${escapedKey}"</span>: ${rendered}${comma}`;
+            });
+
+            const content = items.join('\n');
+            const preview = `{${keys.length} keys}`;
+
+            return `<span class="collapsible" onclick="toggleCollapse(this)"><span class="collapse-icon">-</span>{</span><span class="collapsible-content">\n${content}\n${indentStr}</span><span class="collapse-preview">${preview}</span>}`;
+        }
+
+        return String(data);
     }
 
     /**
@@ -113,7 +138,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (result.success) {
             currentFormattedJSON = result.formatted;
-            jsonOutput.innerHTML = highlightJSON(result.formatted);
+            currentParsedJSON = result.data;
+            jsonOutput.innerHTML = renderJSON(result.data);
             showView(resultView);
         } else {
             showError(result.error);
@@ -167,3 +193,22 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 });
+
+/**
+ * Función global para colapsar/expandir elementos
+ */
+function toggleCollapse(element) {
+    const content = element.nextElementSibling;
+    const preview = content.nextElementSibling;
+    const icon = element.querySelector('.collapse-icon');
+    
+    if (content.classList.contains('collapsed')) {
+        content.classList.remove('collapsed');
+        preview.classList.remove('visible');
+        icon.textContent = '-';
+    } else {
+        content.classList.add('collapsed');
+        preview.classList.add('visible');
+        icon.textContent = '+';
+    }
+}
