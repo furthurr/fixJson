@@ -2,6 +2,8 @@
 
 Una herramienta web simple para reparar y formatear JSON malformado.
 
+![Demo](demo.png)
+
 ## Descripcion
 
 JSON Fixer es una aplicacion web que te permite pegar JSON con errores de formato y automaticamente intenta corregirlos, mostrando el resultado con syntax highlighting para una mejor legibilidad.
