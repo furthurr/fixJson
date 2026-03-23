@@ -173,18 +173,98 @@ const JSONFixer = {
      * Intenta arreglar valores sin comillas que deberían tenerlas
      */
     fixUnquotedValues(str) {
-        // Busca patrones como: "key": valor (donde valor no es número, bool, null, objeto o array)
-        return str.replace(
-            /:(\s*)([a-zA-Z_][a-zA-Z0-9_]*)\s*([,}\]])/g,
-            (match, space, value, end) => {
-                // Si es un valor especial de JSON, dejarlo
-                if (['true', 'false', 'null'].includes(value.toLowerCase())) {
-                    return `:${space}${value.toLowerCase()}${end}`;
+        let result = '';
+        let i = 0;
+        let inString = false;
+        let escaped = false;
+
+        while (i < str.length) {
+            const char = str[i];
+
+            if (inString) {
+                result += char;
+
+                if (escaped) {
+                    escaped = false;
+                } else if (char === '\\') {
+                    escaped = true;
+                } else if (char === '"') {
+                    inString = false;
                 }
-                // Si no, agregar comillas
-                return `:${space}"${value}"${end}`;
+
+                i += 1;
+                continue;
             }
-        );
+
+            if (char === '"') {
+                inString = true;
+                result += char;
+                i += 1;
+                continue;
+            }
+
+            if (char !== ':') {
+                result += char;
+                i += 1;
+                continue;
+            }
+
+            result += char;
+            i += 1;
+
+            while (i < str.length && /\s/.test(str[i])) {
+                result += str[i];
+                i += 1;
+            }
+
+            if (i >= str.length) {
+                break;
+            }
+
+            const startChar = str[i];
+
+            if (
+                startChar === '"' ||
+                startChar === '{' ||
+                startChar === '[' ||
+                startChar === '-' ||
+                /\d/.test(startChar)
+            ) {
+                continue;
+            }
+
+            let value = '';
+
+            while (i < str.length && !/[\],}]/.test(str[i])) {
+                value += str[i];
+                i += 1;
+            }
+
+            const trimmedValue = value.trim();
+
+            if (!trimmedValue) {
+                result += value;
+                continue;
+            }
+
+            if (/^(true|false|null)$/i.test(trimmedValue)) {
+                result += value.replace(trimmedValue, trimmedValue.toLowerCase());
+                continue;
+            }
+
+            if (/^-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?$/.test(trimmedValue)) {
+                result += value;
+                continue;
+            }
+
+            const quotedValue = trimmedValue
+                .replace(/\\/g, '\\\\')
+                .replace(/"/g, '\\"');
+
+            result += value.replace(trimmedValue, `"${quotedValue}"`);
+        }
+
+        return result;
     },
 
     /**
