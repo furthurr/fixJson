@@ -223,27 +223,18 @@ const JSONFixer = {
 
             const startChar = str[i];
 
-            if (
-                startChar === '"' ||
-                startChar === '{' ||
-                startChar === '[' ||
-                startChar === '-' ||
-                /\d/.test(startChar)
-            ) {
+            if (startChar === '"' || startChar === '{' || startChar === '[') {
                 continue;
             }
 
-            let value = '';
-
-            while (i < str.length && !/[\],}]/.test(str[i])) {
-                value += str[i];
-                i += 1;
-            }
+            const valueEnd = this.findValueBoundary(str, i);
+            const value = str.slice(i, valueEnd);
+            i = valueEnd;
 
             const trimmedValue = value.trim();
 
             if (!trimmedValue) {
-                result += value;
+                result += '""';
                 continue;
             }
 
@@ -265,6 +256,60 @@ const JSONFixer = {
         }
 
         return result;
+    },
+
+    findValueBoundary(str, startIndex) {
+        let i = startIndex;
+
+        while (i < str.length) {
+            const char = str[i];
+
+            if (char === ',') {
+                if (this.isNextProperty(str, i + 1)) {
+                    return i;
+                }
+            } else if (char === '}' || char === ']') {
+                return i;
+            }
+
+            i += 1;
+        }
+
+        return i;
+    },
+
+    isNextProperty(str, startIndex) {
+        let i = startIndex;
+
+        while (i < str.length && /\s/.test(str[i])) {
+            i += 1;
+        }
+
+        if (str[i] !== '"') {
+            return false;
+        }
+
+        i += 1;
+
+        while (i < str.length) {
+            if (str[i] === '\\') {
+                i += 2;
+                continue;
+            }
+
+            if (str[i] === '"') {
+                i += 1;
+                break;
+            }
+
+            i += 1;
+        }
+
+        while (i < str.length && /\s/.test(str[i])) {
+            i += 1;
+        }
+
+        return str[i] === ':';
     },
 
     /**
