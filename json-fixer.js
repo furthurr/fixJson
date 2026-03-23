@@ -76,7 +76,10 @@ const JSONFixer = {
         // 8. Corregir valores sin comillas (excepto números, booleanos, null)
         result = this.fixUnquotedValues(result);
 
-        // 9. Balancear llaves y corchetes
+        // 9. Corregir elementos de arrays sin comillas
+        result = this.fixUnquotedArrayItems(result);
+
+        // 10. Balancear llaves y corchetes
         result = this.balanceBrackets(result);
 
         return result;
@@ -310,6 +313,174 @@ const JSONFixer = {
         }
 
         return str[i] === ':';
+    },
+
+    fixUnquotedArrayItems(str) {
+        let result = '';
+        let i = 0;
+        let inString = false;
+        let escaped = false;
+        const stack = [];
+        let expectArrayValue = false;
+
+        while (i < str.length) {
+            const char = str[i];
+
+            if (inString) {
+                result += char;
+
+                if (escaped) {
+                    escaped = false;
+                } else if (char === '\\') {
+                    escaped = true;
+                } else if (char === '"') {
+                    inString = false;
+                }
+
+                i += 1;
+                continue;
+            }
+
+            if (char === '"') {
+                inString = true;
+                result += char;
+                i += 1;
+                continue;
+            }
+
+            if (char === '[') {
+                stack.push('array');
+                result += char;
+                expectArrayValue = true;
+                i += 1;
+                continue;
+            }
+
+            if (char === '{') {
+                stack.push('object');
+                result += char;
+                expectArrayValue = false;
+                i += 1;
+                continue;
+            }
+
+            if (char === ']') {
+                stack.pop();
+                result += char;
+                expectArrayValue = false;
+                i += 1;
+                continue;
+            }
+
+            if (char === '}') {
+                stack.pop();
+                result += char;
+                expectArrayValue = false;
+                i += 1;
+                continue;
+            }
+
+            if (char === ',') {
+                result += char;
+                expectArrayValue = stack[stack.length - 1] === 'array';
+                i += 1;
+                continue;
+            }
+
+            if (stack[stack.length - 1] !== 'array' || !expectArrayValue) {
+                result += char;
+                i += 1;
+                continue;
+            }
+
+            while (i < str.length && /\s/.test(str[i])) {
+                result += str[i];
+                i += 1;
+            }
+
+            if (i >= str.length) {
+                break;
+            }
+
+            const startChar = str[i];
+
+            if (
+                startChar === '"' ||
+                startChar === '{' ||
+                startChar === '[' ||
+                startChar === ']' ||
+                startChar === '-' ||
+                /\d/.test(startChar)
+            ) {
+                expectArrayValue = false;
+                continue;
+            }
+
+            const valueEnd = this.findArrayItemBoundary(str, i);
+            const value = str.slice(i, valueEnd);
+            i = valueEnd;
+
+            const trimmedValue = value.trim();
+
+            if (!trimmedValue) {
+                result += '""';
+                expectArrayValue = false;
+                continue;
+            }
+
+            if (/^(true|false|null)$/i.test(trimmedValue)) {
+                result += value.replace(trimmedValue, trimmedValue.toLowerCase());
+                expectArrayValue = false;
+                continue;
+            }
+
+            if (/^-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?$/.test(trimmedValue)) {
+                result += value;
+                expectArrayValue = false;
+                continue;
+            }
+
+            const quotedValue = trimmedValue
+                .replace(/\\/g, '\\\\')
+                .replace(/"/g, '\\"');
+
+            result += value.replace(trimmedValue, `"${quotedValue}"`);
+            expectArrayValue = false;
+        }
+
+        return result;
+    },
+
+    findArrayItemBoundary(str, startIndex) {
+        let i = startIndex;
+        let nestedObjects = 0;
+        let nestedArrays = 0;
+
+        while (i < str.length) {
+            const char = str[i];
+
+            if (char === '{') {
+                nestedObjects += 1;
+            } else if (char === '}') {
+                if (nestedObjects === 0) {
+                    return i;
+                }
+                nestedObjects -= 1;
+            } else if (char === '[') {
+                nestedArrays += 1;
+            } else if (char === ']') {
+                if (nestedObjects === 0 && nestedArrays === 0) {
+                    return i;
+                }
+                nestedArrays -= 1;
+            } else if (char === ',' && nestedObjects === 0 && nestedArrays === 0) {
+                return i;
+            }
+
+            i += 1;
+        }
+
+        return i;
     },
 
     /**
