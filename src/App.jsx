@@ -1,31 +1,125 @@
-import React, { Suspense, lazy, useMemo, useState } from 'react';
+import React, { Suspense, lazy, useState } from 'react';
 import JSONFixer from './jsonFixer';
 
 const JsonGraph = lazy(() => import('./JsonGraph'));
 
-function highlightJson(json) {
-  const escaped = json
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
+function JsonValue({ value, depth = 0, propertyName = null, isLast = true, defaultCollapsed = false }) {
+  const [collapsed, setCollapsed] = useState(defaultCollapsed);
+  const isArray = Array.isArray(value);
+  const isObject = value !== null && typeof value === 'object' && !isArray;
+  const isBranch = isArray || isObject;
 
-  return escaped.replace(
-    /("(?:\\u[a-fA-F0-9]{4}|\\[^u]|[^\\"])*"\s*:?)|(\btrue\b|\bfalse\b)|(\bnull\b)|(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)/g,
-    (match, stringToken, booleanToken, nullToken, numberToken) => {
-      if (stringToken) {
-        if (stringToken.endsWith(':')) {
-          return `<span class="json-key-token">${stringToken.slice(0, -1)}</span>:`;
-        }
-        return `<span class="json-string-token">${stringToken}</span>`;
-      }
-      if (booleanToken) {
-        return `<span class="json-boolean-token">${booleanToken}</span>`;
-      }
-      if (nullToken) {
-        return `<span class="json-null-token">${nullToken}</span>`;
-      }
-      return `<span class="json-number-token">${numberToken}</span>`;
+  const indentStyle = { paddingLeft: `${depth * 20}px` };
+  const comma = isLast ? '' : ',';
+
+  function renderPrimitive(currentValue) {
+    if (currentValue === null) {
+      return <span className="json-null-token">null</span>;
     }
+
+    if (typeof currentValue === 'string') {
+      return <span className="json-string-token">"{currentValue}"</span>;
+    }
+
+    if (typeof currentValue === 'number') {
+      return <span className="json-number-token">{currentValue}</span>;
+    }
+
+    if (typeof currentValue === 'boolean') {
+      return <span className="json-boolean-token">{String(currentValue)}</span>;
+    }
+
+    return <span>{String(currentValue)}</span>;
+  }
+
+  if (!isBranch) {
+    return (
+      <div className="json-line" style={indentStyle}>
+        {propertyName !== null && (
+          <>
+            <span className="json-key-token">"{propertyName}"</span>
+            <span>: </span>
+          </>
+        )}
+        {renderPrimitive(value)}
+        <span>{comma}</span>
+      </div>
+    );
+  }
+
+  const entries = isArray
+    ? value.map((item, index) => [index, item])
+    : Object.entries(value);
+
+  const opening = isArray ? '[' : '{';
+  const closing = isArray ? ']' : '}';
+  const preview = isArray ? `[${entries.length} items]` : `{${entries.length} keys}`;
+
+  if (collapsed) {
+    return (
+      <div className="json-line" style={indentStyle}>
+        {propertyName !== null && (
+          <>
+            <button type="button" className="json-collapse-toggle" onClick={() => setCollapsed(false)}>+</button>
+            <span className="json-key-token">"{propertyName}"</span>
+            <span>: </span>
+          </>
+        )}
+        {propertyName === null && (
+          <button type="button" className="json-collapse-toggle" onClick={() => setCollapsed(false)}>+</button>
+        )}
+        <span className="json-bracket-token">{opening}</span>
+        <span className="json-collapsed-preview">{preview}</span>
+        <span className="json-bracket-token">{closing}</span>
+        <span>{comma}</span>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <div className="json-line" style={indentStyle}>
+        {propertyName !== null && (
+          <>
+            <button type="button" className="json-collapse-toggle" onClick={() => setCollapsed(true)}>-</button>
+            <span className="json-key-token">"{propertyName}"</span>
+            <span>: </span>
+          </>
+        )}
+        {propertyName === null && (
+          <button type="button" className="json-collapse-toggle" onClick={() => setCollapsed(true)}>-</button>
+        )}
+        <span className="json-bracket-token">{opening}</span>
+      </div>
+
+      {entries.map(([key, child], index) => (
+        <JsonValue
+          key={`${propertyName || 'root'}-${key}`}
+          value={child}
+          depth={depth + 1}
+          propertyName={isArray ? null : key}
+          isLast={index === entries.length - 1}
+          defaultCollapsed={false}
+        />
+      ))}
+
+      <div className="json-line" style={indentStyle}>
+        <span className="json-bracket-token">{closing}</span>
+        <span>{comma}</span>
+      </div>
+    </div>
+  );
+}
+
+function JsonTextView({ data }) {
+  if (data === null || data === undefined) {
+    return null;
+  }
+
+  return (
+    <div className="json-pretty json-pretty--interactive">
+      <JsonValue value={data} />
+    </div>
   );
 }
 
@@ -36,13 +130,6 @@ export default function App() {
   const [parsed, setParsed] = useState(null);
   const [view, setView] = useState('text');
   const [copied, setCopied] = useState(false);
-
-  const highlighted = useMemo(() => {
-    if (!formatted) {
-      return '';
-    }
-    return highlightJson(formatted);
-  }, [formatted]);
 
   const hasResult = Boolean(formatted);
 
@@ -58,7 +145,7 @@ export default function App() {
     setError('');
     setFormatted(result.formatted);
     setParsed(result.data);
-    setView('graph');
+    setView('text');
   }
 
   async function handleCopy() {
@@ -156,7 +243,7 @@ export default function App() {
 
             {view === 'text' ? (
               <section className="panel panel--text">
-                <pre className="json-pretty" dangerouslySetInnerHTML={{ __html: highlighted }} />
+                <JsonTextView data={parsed} />
               </section>
             ) : (
               <Suspense fallback={<section className="panel panel--loading">Cargando vista grafica...</section>}>
