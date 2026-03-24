@@ -38,18 +38,82 @@ const JSONFixer = {
     let result = str;
 
     result = result.replace(/^\uFEFF/, '');
+    result = this.removeComments(result);
     result = result.replace(/["\u201C\u201D]/g, '"');
     result = result.replace(/[\u2018\u2019]/g, "'");
     result = this.wrapIfNeeded(result);
     result = this.quoteUnquotedKeys(result);
     result = this.fixQuotes(result);
+    result = this.normalizeSpecialLiterals(result);
     result = this.removeTrailingCommas(result);
     result = this.addMissingCommas(result);
     result = this.fixUnquotedValues(result);
     result = this.fixUnquotedArrayItems(result);
+    result = this.escapeControlCharactersInStrings(result);
     result = this.balanceBrackets(result);
 
     return result;
+  },
+
+  removeComments(str) {
+    let result = '';
+    let inString = false;
+    let escaped = false;
+
+    for (let i = 0; i < str.length; i += 1) {
+      const char = str[i];
+      const next = str[i + 1];
+
+      if (inString) {
+        result += char;
+
+        if (escaped) {
+          escaped = false;
+        } else if (char === '\\') {
+          escaped = true;
+        } else if (char === '"') {
+          inString = false;
+        }
+
+        continue;
+      }
+
+      if (char === '"') {
+        inString = true;
+        result += char;
+        continue;
+      }
+
+      if (char === '/' && next === '/') {
+        while (i < str.length && str[i] !== '\n') {
+          i += 1;
+        }
+        if (i < str.length) {
+          result += '\n';
+        }
+        continue;
+      }
+
+      if (char === '/' && next === '*') {
+        i += 2;
+        while (i < str.length && !(str[i] === '*' && str[i + 1] === '/')) {
+          i += 1;
+        }
+        i += 1;
+        continue;
+      }
+
+      result += char;
+    }
+
+    return result;
+  },
+
+  normalizeSpecialLiterals(str) {
+    return str
+      .replace(/:\s*undefined(\s*[,}\]])/gi, ': null$1')
+      .replace(/:\s*NaN(\s*[,}\]])/g, ': null$1')
+      .replace(/:\s*-?Infinity(\s*[,}\]])/g, ': null$1');
   },
 
   wrapIfNeeded(str) {
@@ -184,7 +248,12 @@ const JSONFixer = {
         continue;
       }
 
-      const quotedValue = trimmedValue.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+      const normalizedValue = trimmedValue
+        .replace(/\r\n/g, '\n')
+        .replace(/[\r\n]+/g, '\\n')
+        .replace(/\t/g, ' ');
+
+      const quotedValue = normalizedValue.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
       result += value.replace(trimmedValue, `"${quotedValue}"`);
     }
 
@@ -341,7 +410,12 @@ const JSONFixer = {
         continue;
       }
 
-      const quotedValue = trimmedValue.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+      const normalizedValue = trimmedValue
+        .replace(/\r\n/g, '\n')
+        .replace(/[\r\n]+/g, '\\n')
+        .replace(/\t/g, ' ');
+
+      const quotedValue = normalizedValue.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
       result += value.replace(trimmedValue, `"${quotedValue}"`);
       expectArrayValue = false;
     }
@@ -397,6 +471,61 @@ const JSONFixer = {
     }
     for (let i = 0; i < closeBrackets - openBrackets; i += 1) {
       result = `[${result}`;
+    }
+
+    return result;
+  },
+
+  escapeControlCharactersInStrings(str) {
+    let result = '';
+    let inString = false;
+    let escaped = false;
+
+    for (let i = 0; i < str.length; i += 1) {
+      const char = str[i];
+
+      if (!inString) {
+        result += char;
+        if (char === '"') {
+          inString = true;
+        }
+        continue;
+      }
+
+      if (escaped) {
+        result += char;
+        escaped = false;
+        continue;
+      }
+
+      if (char === '\\') {
+        result += char;
+        escaped = true;
+        continue;
+      }
+
+      if (char === '"') {
+        result += char;
+        inString = false;
+        continue;
+      }
+
+      if (char === '\n') {
+        result += '\\n';
+        continue;
+      }
+
+      if (char === '\r') {
+        result += '\\r';
+        continue;
+      }
+
+      if (char === '\t') {
+        result += '\\t';
+        continue;
+      }
+
+      result += char;
     }
 
     return result;

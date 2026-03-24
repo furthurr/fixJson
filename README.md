@@ -14,11 +14,27 @@ JSON Fixer permite pegar respuestas que parecen JSON pero vienen incompletas o m
 - Convierte comillas simples a dobles
 - Agrega comillas a strings sin comillas
 - Soporta strings complejos con espacios, acentos, UUIDs, URLs, telefonos y colores hex
+- Soporta strings multilinea y valores con saltos de linea inesperados
 - Repara elementos de arrays sin comillas
 - Convierte propiedades vacias como `extension:` en `""`
 - Elimina comas finales antes de `}` o `]`
 - Intenta balancear llaves y corchetes faltantes
 - Normaliza `true`, `false` y `null`
+- Convierte `undefined`, `NaN` e `Infinity` a valores validos de JSON
+- Elimina comentarios `//` y `/* ... */` cuando aparecen fuera de strings
+
+## Errores comunes soportados
+
+- Claves sin comillas: `{name: Juan}`
+- Strings sin comillas: `mensaje: Operacion exitosa`
+- Arrays con textos sin comillas: `detalles: [Error interno del servicio]`
+- Propiedades vacias: `extension:`
+- Saltos de linea dentro de valores: `departamento: AD` seguido de otra linea
+- Comillas simples o tipograficas
+- Comas finales
+- Llaves o corchetes faltantes
+- Comentarios estilo JavaScript
+- Literales invalidos para JSON como `undefined`, `NaN` o `Infinity`
 
 ## Interfaz
 
