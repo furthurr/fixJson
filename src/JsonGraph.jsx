@@ -1,10 +1,13 @@
-import React, { memo, useEffect, useMemo } from 'react';
+import React, { memo, useEffect, useMemo, useRef, useState } from 'react';
+import { toPng } from 'html-to-image';
 import {
   Background,
   BaseEdge,
   Controls,
   EdgeLabelRenderer,
+  getNodesBounds,
   getSmoothStepPath,
+  getViewportForBounds,
   Handle,
   MiniMap,
   ReactFlow,
@@ -266,11 +269,16 @@ function buildFlowGraph(data) {
   return { nodes, edges };
 }
 
-export default function JsonGraph({ data }) {
+export default function JsonGraph({ data, onExportingChange = () => {} }) {
+  const legendText = 'https://furthurr.github.io/fixJson desarrollado por Pedro GV @furthurr';
+  const exportRef = useRef(null);
   const storageKey = useMemo(() => getStorageKey(data), [data]);
   const graph = useMemo(() => buildFlowGraph(data), [data]);
   const [nodes, setNodes, onNodesChange] = useNodesState(graph.nodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(graph.edges);
+  const [isExporting, setIsExporting] = useState(false);
+  const [reactFlowInstance, setReactFlowInstance] = useState(null);
+  const [exportSize, setExportSize] = useState(null);
 
   useEffect(() => {
     const savedPositions = loadSavedPositions(storageKey);
@@ -287,14 +295,100 @@ export default function JsonGraph({ data }) {
     window.localStorage.setItem(storageKey, JSON.stringify(positions));
   }, [nodes, storageKey]);
 
+  async function handleDownloadPng() {
+    if (!exportRef.current || isExporting) {
+      return;
+    }
+
+    let previousViewport = null;
+
+    try {
+      setIsExporting(true);
+      onExportingChange(true);
+      previousViewport = reactFlowInstance?.getViewport?.() ?? null;
+
+      if (reactFlowInstance) {
+        const bounds = getNodesBounds(nodes);
+        const padding = 120;
+        const width = Math.max(1400, Math.ceil(bounds.width + (padding * 2)));
+        const height = Math.max(900, Math.ceil(bounds.height + (padding * 2)));
+        const viewport = getViewportForBounds(bounds, width, height, 0.05, 2, 0.08);
+
+        setExportSize({ width, height });
+        await new Promise((resolve) => window.requestAnimationFrame(() => resolve()));
+        await reactFlowInstance.setViewport(viewport, { duration: 0 });
+      }
+
+      await new Promise((resolve) => window.requestAnimationFrame(() => resolve()));
+      await new Promise((resolve) => window.requestAnimationFrame(() => resolve()));
+
+      const rect = exportRef.current.getBoundingClientRect();
+      const nodeCount = nodes.length;
+      const area = rect.width * rect.height;
+      let pixelRatio = Math.max(window.devicePixelRatio || 1, 2.2);
+
+      if (nodeCount <= 12 && area < 1_000_000) {
+        pixelRatio = Math.max(pixelRatio, 2.6);
+      } else if (nodeCount <= 30 && area < 2_000_000) {
+        pixelRatio = Math.max(pixelRatio, 2.9);
+      } else if (nodeCount <= 60 && area < 4_000_000) {
+        pixelRatio = Math.max(pixelRatio, 3.2);
+      } else {
+        pixelRatio = Math.max(pixelRatio, 3.5);
+      }
+
+      const dataUrl = await toPng(exportRef.current, {
+        cacheBust: true,
+        pixelRatio,
+        backgroundColor: '#101827',
+        canvasWidth: rect.width * pixelRatio,
+        canvasHeight: rect.height * pixelRatio,
+        style: {
+          transform: 'scale(1)',
+          transformOrigin: 'top left'
+        }
+      });
+
+      const link = document.createElement('a');
+      link.download = 'fixjson-grafica.png';
+      link.href = dataUrl;
+      link.click();
+    } finally {
+      if (reactFlowInstance && previousViewport) {
+        await reactFlowInstance.setViewport(previousViewport, { duration: 0 });
+      }
+      setExportSize(null);
+      setIsExporting(false);
+      onExportingChange(false);
+    }
+  }
+
+  const legendFontSize = useMemo(() => {
+    const width = exportSize?.width ?? 1400;
+    const estimatedCharacterWidth = 0.56;
+    const targetWidth = width * 0.4;
+    const size = targetWidth / (legendText.length * estimatedCharacterWidth);
+
+    return Math.max(9, Math.min(20, size));
+  }, [exportSize, legendText]);
+
   return (
     <div className="panel panel--graph">
       <div className="graph-help">
         <span>Arrastra nodos, usa zoom y explora la estructura.</span>
-        <span>{nodes.length} nodos</span>
+        <div className="graph-help__actions">
+          <span>{nodes.length} nodos</span>
+          <button type="button" className="secondary-button graph-download-button" onClick={handleDownloadPng}>
+            {isExporting ? 'Generando PNG...' : 'Descargar PNG'}
+          </button>
+        </div>
       </div>
 
-      <div className="graph-stage">
+      <div ref={exportRef} className={`graph-export-surface ${isExporting ? 'is-exporting' : ''}`}>
+        <div
+          className="graph-stage"
+          style={exportSize ? { width: `${exportSize.width}px`, height: `${exportSize.height}px` } : undefined}
+        >
         <ReactFlowProvider>
           <ReactFlow
             nodes={nodes}
@@ -312,8 +406,9 @@ export default function JsonGraph({ data }) {
             minZoom={0.2}
             maxZoom={1.6}
             proOptions={{ hideAttribution: true }}
+            onInit={setReactFlowInstance}
           >
-            <Background color="#24324d" gap={24} size={1} />
+            {!isExporting && <Background color="#24324d" gap={24} size={1} />}
             <MiniMap
               pannable
               zoomable
@@ -324,6 +419,11 @@ export default function JsonGraph({ data }) {
             <Controls />
           </ReactFlow>
         </ReactFlowProvider>
+        </div>
+
+        <div className="graph-export-legend" style={{ fontSize: `${legendFontSize}px` }}>
+          {legendText}
+        </div>
       </div>
     </div>
   );

@@ -310,13 +310,89 @@ textarea {
   flex-wrap: wrap;
 }
 
+.graph-help__actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.graph-loading-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background:
+    radial-gradient(circle at top, rgba(104, 164, 255, 0.14), transparent 30%),
+    linear-gradient(180deg, rgba(2, 6, 12, 0.94), rgba(4, 9, 18, 0.97));
+  backdrop-filter: blur(6px);
+}
+
+.graph-loading-overlay__content {
+  position: relative;
+  z-index: 100000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 260px;
+  min-height: 120px;
+  padding: 20px 28px;
+  border: 1px solid rgba(104, 164, 255, 0.26);
+  border-radius: 22px;
+  background: rgba(8, 12, 22, 0.92);
+  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.45);
+}
+
+.graph-loading-overlay__text {
+  display: block;
+  color: #ffffff;
+  font-size: 2rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  line-height: 1;
+  text-align: center;
+  text-shadow: 0 0 24px rgba(79, 210, 194, 0.35);
+}
+
+.graph-download-button {
+  padding: 10px 14px;
+}
+
+.graph-export-surface {
+  background:
+    radial-gradient(circle at top, rgba(104, 164, 255, 0.08), transparent 34%),
+    linear-gradient(180deg, rgba(16, 23, 38, 0.96), rgba(10, 15, 25, 0.98));
+}
+
+.graph-export-surface.is-exporting {
+  background: #101827;
+}
+
 .graph-stage {
   height: 72vh;
   min-height: 620px;
   min-width: 100%;
-  background:
-    radial-gradient(circle at top, rgba(104, 164, 255, 0.08), transparent 34%),
-    linear-gradient(180deg, rgba(16, 23, 38, 0.96), rgba(10, 15, 25, 0.98));
+}
+
+.graph-export-legend {
+  display: none;
+  padding: 12px 18px 18px;
+  border-top: 1px solid rgba(104, 164, 255, 0.16);
+  color: var(--muted);
+  text-align: center;
+}
+
+.graph-export-surface.is-exporting .graph-export-legend {
+  display: block;
+}
+
+.graph-export-surface.is-exporting .react-flow__controls,
+.graph-export-surface.is-exporting .react-flow__minimap,
+.graph-export-surface.is-exporting .react-flow__attribution,
+.graph-export-surface.is-exporting .react-flow__background {
+  display: none !important;
 }
 
 .flow-card {

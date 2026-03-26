@@ -130,6 +130,7 @@ export default function App() {
   const [parsed, setParsed] = useState(null);
   const [view, setView] = useState('text');
   const [copied, setCopied] = useState(false);
+  const [isExportingGraph, setIsExportingGraph] = useState(false);
 
   const hasResult = Boolean(formatted);
 
@@ -172,6 +173,14 @@ export default function App() {
 
   return (
     <div className="app-shell">
+      {isExportingGraph && (
+        <div className="graph-loading-overlay">
+          <div className="graph-loading-overlay__content">
+            <div className="graph-loading-overlay__text">Cargando...</div>
+          </div>
+        </div>
+      )}
+
       <div className="ambient ambient--one" />
       <div className="ambient ambient--two" />
 
@@ -247,7 +256,7 @@ export default function App() {
               </section>
             ) : (
               <Suspense fallback={<section className="panel panel--loading">Cargando vista grafica...</section>}>
-                <JsonGraph data={parsed} />
+                <JsonGraph data={parsed} onExportingChange={setIsExportingGraph} />
               </Suspense>
             )}
           </section>
