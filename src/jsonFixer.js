@@ -116,6 +116,10 @@ const JSONFixer = {
       .replace(/:\s*-?Infinity(\s*[,}\]])/g, ': null$1');
   },
 
+  isValidJsonNumberLiteral(value) {
+    return /^-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?$/.test(value);
+  },
+
   wrapIfNeeded(str) {
     const trimmed = str.trim();
     if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
@@ -243,7 +247,7 @@ const JSONFixer = {
         continue;
       }
 
-      if (/^-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?$/.test(trimmedValue)) {
+      if (this.isValidJsonNumberLiteral(trimmedValue)) {
         result += value;
         continue;
       }
@@ -404,7 +408,7 @@ const JSONFixer = {
         continue;
       }
 
-      if (/^-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?$/.test(trimmedValue)) {
+      if (this.isValidJsonNumberLiteral(trimmedValue)) {
         result += value;
         expectArrayValue = false;
         continue;
