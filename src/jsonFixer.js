@@ -42,6 +42,7 @@ const JSONFixer = {
     result = result.replace(/["\u201C\u201D]/g, '"');
     result = result.replace(/[\u2018\u2019]/g, "'");
     result = this.wrapIfNeeded(result);
+    result = this.fixSemicolonDelimiters(result);
     result = this.quoteUnquotedKeys(result);
     result = this.fixQuotes(result);
     result = this.normalizeSpecialLiterals(result);
@@ -120,6 +121,19 @@ const JSONFixer = {
     return /^-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?$/.test(value);
   },
 
+  needsQuotedString(value) {
+    if (!value || !value.trim()) {
+      return true;
+    }
+    if (/^(true|false|null)$/i.test(value)) {
+      return false;
+    }
+    if (this.isValidJsonNumberLiteral(value)) {
+      return false;
+    }
+    return true;
+  },
+
   wrapIfNeeded(str) {
     const trimmed = str.trim();
     if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
@@ -132,7 +146,7 @@ const JSONFixer = {
   },
 
   quoteUnquotedKeys(str) {
-    return str.replace(/([{,]\s*)([a-zA-Z_$][a-zA-Z0-9_$]*)\s*:/g, '$1"$2":');
+    return str.replace(/([{,]\s*)([a-zA-Z_$][a-zA-Z0-9_$]*(-[a-zA-Z0-9_$]+)*)\s*:/g, '$1"$2":');
   },
 
   fixQuotes(str) {
@@ -172,6 +186,57 @@ const JSONFixer = {
 
   removeTrailingCommas(str) {
     return str.replace(/,(\s*[}\]])/g, '$1');
+  },
+
+  fixSemicolonDelimiters(str) {
+    let result = '';
+    let i = 0;
+    let inString = false;
+    let escaped = false;
+
+    while (i < str.length) {
+      const char = str[i];
+
+      if (inString) {
+        result += char;
+        if (escaped) {
+          escaped = false;
+        } else if (char === '\\') {
+          escaped = true;
+        } else if (char === '"') {
+          inString = false;
+        }
+        i += 1;
+        continue;
+      }
+
+      if (char === '"') {
+        inString = true;
+        result += char;
+        i += 1;
+        continue;
+      }
+
+      if (char === ';') {
+        const afterSemi = str.slice(i + 1).match(/^\s*([a-zA-Z_$][a-zA-Z0-9_$]*)\s*:/);
+        if (afterSemi) {
+          result += ',';
+          i += 1;
+          while (i < str.length && /\s/.test(str[i])) {
+            i += 1;
+          }
+          continue;
+        }
+        result += char;
+        i += 1;
+        continue;
+      }
+
+      result += char;
+      i += 1;
+    }
+
+    return result;
   },
 
   addMissingCommas(str) {
@@ -228,7 +293,30 @@ const JSONFixer = {
       }
 
       const startChar = str[i];
-      if (startChar === '"' || startChar === '{' || startChar === '[') {
+      if (startChar === '"') {
+        result += '"';
+        i += 1;
+        while (i < str.length) {
+          if (str[i] === '\\') {
+            result += str[i];
+            i += 1;
+            if (i < str.length) {
+              result += str[i];
+              i += 1;
+            }
+          } else if (str[i] === '"') {
+            result += '"';
+            i += 1;
+            break;
+          } else {
+            result += str[i];
+            i += 1;
+          }
+        }
+        continue;
+      }
+
+      if (startChar === '{' || startChar === '[') {
         continue;
       }
 
@@ -252,13 +340,18 @@ const JSONFixer = {
         continue;
       }
 
-      const normalizedValue = trimmedValue
-        .replace(/\r\n/g, '\n')
-        .replace(/[\r\n]+/g, '\\n')
-        .replace(/\t/g, ' ');
+      if (this.needsQuotedString(trimmedValue)) {
+        const normalizedValue = trimmedValue
+          .replace(/\r\n/g, '\n')
+          .replace(/[\r\n]+/g, '\\n')
+          .replace(/\t/g, ' ');
 
-      const quotedValue = normalizedValue.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
-      result += value.replace(trimmedValue, `"${quotedValue}"`);
+        const quotedValue = normalizedValue.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+        result += value.replace(trimmedValue, `"${quotedValue}"`);
+        continue;
+      }
+
+      result += value;
     }
 
     return result;
@@ -269,6 +362,10 @@ const JSONFixer = {
     while (i < str.length) {
       const char = str[i];
       if (char === ',') {
+        if (this.isNextProperty(str, i + 1)) {
+          return i;
+        }
+      } else if (char === ';') {
         if (this.isNextProperty(str, i + 1)) {
           return i;
         }
@@ -414,14 +511,19 @@ const JSONFixer = {
         continue;
       }
 
-      const normalizedValue = trimmedValue
-        .replace(/\r\n/g, '\n')
-        .replace(/[\r\n]+/g, '\\n')
-        .replace(/\t/g, ' ');
+      if (this.needsQuotedString(trimmedValue)) {
+        const normalizedValue = trimmedValue
+          .replace(/\r\n/g, '\n')
+          .replace(/[\r\n]+/g, '\\n')
+          .replace(/\t/g, ' ');
 
-      const quotedValue = normalizedValue.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
-      result += value.replace(trimmedValue, `"${quotedValue}"`);
-      expectArrayValue = false;
+        const quotedValue = normalizedValue.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+        result += value.replace(trimmedValue, `"${quotedValue}"`);
+        expectArrayValue = false;
+        continue;
+      }
+
+      result += value;
     }
 
     return result;
