@@ -52,6 +52,7 @@ const JSONFixer = {
     result = this.fixUnquotedArrayItems(result);
     result = this.escapeControlCharactersInStrings(result);
     result = this.balanceBrackets(result);
+    result = this.wrapBareObjectMembers(result);
 
     return result;
   },
@@ -136,13 +137,19 @@ const JSONFixer = {
 
   wrapIfNeeded(str) {
     const trimmed = str.trim();
-    if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+    if (trimmed.startsWith('[') || trimmed.startsWith('{')) {
       return str;
+    }
+    if (trimmed.startsWith('(')) {
+      return `(${str})`;
     }
     if (trimmed.includes(':')) {
       return `{${str}}`;
     }
-    return str;
+    if (/^\d+$/.test(trimmed)) {
+      return str;
+    }
+    return `[${str}]`;
   },
 
   quoteUnquotedKeys(str) {
@@ -580,6 +587,79 @@ const JSONFixer = {
     }
 
     return result;
+  },
+
+  wrapBareObjectMembers(str) {
+    const trimmed = str.trim();
+    if (!trimmed.startsWith('[')) {
+      const objectMembers = [];
+      let current = '';
+      let braceDepth = 0;
+      let inString = false;
+      let escaped = false;
+      let i = 0;
+
+      while (i < trimmed.length) {
+        const char = trimmed[i];
+
+        if (inString) {
+          current += char;
+          if (escaped) {
+            escaped = false;
+          } else if (char === '\\') {
+            escaped = true;
+          } else if (char === '"') {
+            inString = false;
+          }
+          i += 1;
+          continue;
+        }
+
+        if (char === '"') {
+          current += char;
+          inString = true;
+          i += 1;
+          continue;
+        }
+
+        if (char === '{') {
+          braceDepth += 1;
+          current += char;
+          i += 1;
+          continue;
+        }
+
+        if (char === '}') {
+          braceDepth -= 1;
+          current += char;
+          i += 1;
+          continue;
+        }
+
+        if (braceDepth === 0 && char === ',' && i < trimmed.length - 1) {
+          const next = trimmed.slice(i + 1).trimStart();
+          if (next.startsWith('{')) {
+            objectMembers.push(current.trim());
+            current = '';
+            i += 1;
+            continue;
+          }
+        }
+
+        current += char;
+        i += 1;
+      }
+
+      if (current.trim()) {
+        objectMembers.push(current.trim());
+      }
+
+      if (objectMembers.length > 0) {
+        return `[${objectMembers.join(',')}]`;
+      }
+    }
+
+    return str;
   },
 
   escapeControlCharactersInStrings(str) {
