@@ -17,6 +17,7 @@ const JSONFixer = {
       // sigue con reparacion
     }
 
+    str = this.extractJsonIfEmbedded(str) || str;
     str = this.applyFixes(str);
 
     try {
@@ -32,6 +33,79 @@ const JSONFixer = {
         error: `No se pudo reparar el JSON: ${error.message}`
       };
     }
+  },
+
+  extractJsonIfEmbedded(str) {
+    const candidates = [];
+
+    for (let i = 0; i < str.length; i += 1) {
+      const char = str[i];
+      if (char === '{' || char === '[') {
+        const openChar = char;
+        const closeChar = char === '{' ? '}' : ']';
+        const result = this.findBalancedJson(str, i, openChar, closeChar);
+        if (result !== null) {
+          const sub = str.substring(i, i + result.length);
+          if (sub.length > 1) {
+            candidates.push({ start: i, end: i + result.length, length: result.length });
+          }
+        }
+      }
+    }
+
+    if (candidates.length === 0) {
+      return null;
+    }
+
+    candidates.sort((a, b) => b.length - a.length);
+    return str.substring(candidates[0].start, candidates[0].end);
+  },
+
+  findBalancedJson(str, startIndex, openChar, closeChar) {
+    let depth = 0;
+    let inString = false;
+    let escaped = false;
+    let hasContent = false;
+
+    for (let i = startIndex; i < str.length; i += 1) {
+      const char = str[i];
+      if (inString) {
+        if (escaped) {
+          escaped = false;
+        } else if (char === '\\') {
+          escaped = true;
+        } else if (char === '"') {
+          inString = false;
+        }
+        continue;
+      }
+
+      if (char === '"') {
+        inString = true;
+        hasContent = true;
+        continue;
+      }
+
+      if (char === openChar) {
+        depth += 1;
+        hasContent = true;
+        continue;
+      }
+
+      if (char === closeChar) {
+        depth -= 1;
+        if (depth === 0) {
+          return str.substring(startIndex, i + 1);
+        }
+        continue;
+      }
+
+      if (depth > 0 && !/\s/.test(char)) {
+        hasContent = true;
+      }
+    }
+
+    return null;
   },
 
   applyFixes(str) {
