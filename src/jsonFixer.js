@@ -112,7 +112,6 @@ const JSONFixer = {
     let result = str;
 
     result = result.replace(/^\uFEFF/, '');
-    result = this.removeComments(result);
     result = result.replace(/["\u201C\u201D]/g, '"');
     result = result.replace(/[\u2018\u2019]/g, "'");
     result = this.wrapIfNeeded(result);
@@ -124,6 +123,7 @@ const JSONFixer = {
     result = this.addMissingCommas(result);
     result = this.fixUnquotedValues(result);
     result = this.fixUnquotedArrayItems(result);
+    result = this.removeComments(result);
     result = this.escapeControlCharactersInStrings(result);
     result = this.balanceBrackets(result);
     result = this.wrapBareObjectMembers(result);
