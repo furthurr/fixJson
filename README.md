@@ -130,7 +130,10 @@ fixJson/
 
 ## Autor
 
-Pedro GV - [@furthurr](https://github.com/furthurr)
+<a href="https://furthurr.github.io/" target="_blank" rel="noopener noreferrer">Pedro G. V. @furthurr</a>
+
+- **GitHub:** https://github.com/furthurr
+- **Email:** pedrogvas@gmail.com
 
 ## Licencia
 
